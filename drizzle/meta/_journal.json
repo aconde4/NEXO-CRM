@@ -1,0 +1,132 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1781619902936,
+      "tag": "0000_bored_the_phantom",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781627803365,
+      "tag": "0001_nosy_psynapse",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781704219661,
+      "tag": "0002_rare_maggott",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1781771339753,
+      "tag": "0003_warm_prodigy",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1781772937266,
+      "tag": "0004_regular_gamma_corps",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1781789976391,
+      "tag": "0005_gigantic_cargill",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781794170481,
+      "tag": "0006_exotic_prism",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1781952760082,
+      "tag": "0007_typical_kat_farrell",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1782063049463,
+      "tag": "0008_flowery_peter_parker",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1782202440618,
+      "tag": "0009_lively_sunspot",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1782214678841,
+      "tag": "0010_glossy_catseye",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1782395859658,
+      "tag": "0011_far_shinko_yamashiro",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1782400856900,
+      "tag": "0012_flat_namor",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1782463467065,
+      "tag": "0013_clammy_supernaut",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1782464359982,
+      "tag": "0014_hot_loa",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1782465216312,
+      "tag": "0015_gray_skullbuster",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1782719393014,
+      "tag": "0016_famous_norman_osborn",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1782721200000,
+      "tag": "0017_ready_sales_templates",
+      "breakpoints": true
+    }
+  ]
+}

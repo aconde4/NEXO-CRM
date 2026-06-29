@@ -1,0 +1,203 @@
+import type { Metadata } from "next";
+import { cookies } from "next/headers";
+
+import { decodeContactFilterParams } from "@/lib/contact-filters";
+import { DEALS_PIPELINE_COOKIE } from "@/lib/deals-pipeline";
+import {
+  listOrganizationOptions,
+  listPersonIdsByFilters,
+  listPersonOptions,
+} from "@/server/queries/contacts";
+import { listCustomFieldDefs } from "@/server/queries/custom-fields";
+import { listLabels } from "@/server/queries/labels";
+import { listSavedViews } from "@/server/queries/saved-views";
+import { listSequenceEnrollmentOptions } from "@/server/queries/sequences";
+import {
+  getBoard,
+  getFunnelMetrics,
+  listDeals,
+  listPipelines,
+  listStagesByPipeline,
+  type DealListSort,
+  type DealListStatusFilter,
+} from "@/server/queries/deals";
+import { DealsBoard } from "@/components/deals/deals-board";
+import { DealsListView } from "@/components/deals/deals-list-view";
+import { DealsMetrics } from "@/components/deals/deals-metrics";
+import { PageHeader } from "@/components/page-header";
+
+export const metadata: Metadata = { title: "Negocios" };
+
+type DealsSearchParams = {
+  view?: string | string[];
+  pipeline?: string | string[];
+  stage?: string | string[];
+  status?: string | string[];
+  q?: string | string[];
+  sort?: string | string[];
+  filter?: string | string[];
+};
+
+function firstParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function normalizeStatus(value: string | undefined): DealListStatusFilter {
+  if (value === "all" || value === "won" || value === "lost") return value;
+  return "open";
+}
+
+function normalizeSort(value: string | undefined): DealListSort {
+  if (
+    value === "oldest" ||
+    value === "value-desc" ||
+    value === "value-asc" ||
+    value === "close-date"
+  ) {
+    return value;
+  }
+  return "recent";
+}
+
+export default async function DealsPage({
+  searchParams,
+}: {
+  searchParams: Promise<DealsSearchParams>;
+}) {
+  const params = await searchParams;
+  const viewParam = firstParam(params.view);
+  const view =
+    viewParam === "list" ? "list" : viewParam === "metrics" ? "metrics" : "board";
+  const pipelineParam = firstParam(params.pipeline);
+  const stageParam = firstParam(params.stage);
+  const query = firstParam(params.q) ?? "";
+  const status = normalizeStatus(firstParam(params.status));
+  const sort = normalizeSort(firstParam(params.sort));
+
+  const pipelines = await listPipelines();
+  // 6.4f: si no hay embudo en la URL, recordamos el último abierto (cookie). El
+  // parámetro de la URL siempre manda sobre la cookie.
+  const cookieStore = await cookies();
+  const lastPipelineId = cookieStore.get(DEALS_PIPELINE_COOKIE)?.value;
+  const activePipelineId =
+    pipelines.find((pipeline) => pipeline.id === pipelineParam)?.id ??
+    pipelines.find((pipeline) => pipeline.id === lastPipelineId)?.id ??
+    pipelines[0]?.id ??
+    "";
+
+  const [stagesByPipeline, persons, organizations, customFieldDefs, savedViews] =
+    await Promise.all([
+      listStagesByPipeline(),
+      listPersonOptions(),
+      listOrganizationOptions(),
+      listCustomFieldDefs("person"),
+      listSavedViews("deal"),
+    ]);
+
+  const activeStages = stagesByPipeline[activePipelineId] ?? [];
+  const activeStageId =
+    activeStages.find((stage) => stage.id === stageParam)?.id ?? "";
+
+  // Filtros 6.4b aplicados al embudo de contactos (6.4d): acotan por contacto.
+  const conditions = decodeContactFilterParams(params.filter, customFieldDefs);
+  const personIds =
+    conditions.length > 0
+      ? await listPersonIdsByFilters({ conditions })
+      : undefined;
+
+  if (view === "metrics") {
+    const metrics = await getFunnelMetrics(activePipelineId || undefined, {
+      personIds,
+    });
+    return (
+      <>
+        <PageHeader
+          title="Negocios"
+          description="Métricas del embudo: estado por etapa, conversión y campañas."
+        />
+        <DealsMetrics
+          metrics={metrics}
+          conditions={conditions}
+          customFieldDefs={customFieldDefs}
+        />
+      </>
+    );
+  }
+
+  if (view === "list") {
+    const deals = await listDeals({
+      pipelineId: activePipelineId || undefined,
+      stageId: activeStageId || undefined,
+      status,
+      query,
+      sort,
+      personIds,
+    });
+
+    return (
+      <>
+        <PageHeader
+          title="Negocios"
+          description={`${deals.length} ${
+            deals.length === 1 ? "negocio" : "negocios"
+          } en la vista de lista.`}
+        />
+        <DealsListView
+          deals={deals}
+          filters={{
+            pipelineId: activePipelineId,
+            stageId: activeStageId,
+            status,
+            query,
+            sort,
+          }}
+          pipelines={pipelines}
+          stagesByPipeline={stagesByPipeline}
+          persons={persons}
+          organizations={organizations}
+          conditions={conditions}
+          customFieldDefs={customFieldDefs}
+          savedViews={savedViews}
+        />
+      </>
+    );
+  }
+
+  const [board, allLabels, sequenceOptions] = await Promise.all([
+    getBoard(activePipelineId, { personIds }),
+    listLabels(),
+    listSequenceEnrollmentOptions(),
+  ]);
+  // Opciones para las acciones masivas (6.4g).
+  const labelOptions = allLabels.map((l) => ({ id: l.id, name: l.name }));
+  const enrollableSequences = sequenceOptions
+    .filter((s) => s.canEnroll)
+    .map((s) => ({ id: s.id, name: s.name }));
+
+  // Firma de los datos: cambia al crear/mover/editar y remonta el tablero para
+  // re-sincronizar su estado local tras revalidar.
+  const signature = board.columns
+    .map((c) => `${c.stage.id}:${c.deals.map((d) => d.id).join(",")}`)
+    .join("|");
+
+  return (
+    <>
+      <PageHeader
+        title="Negocios"
+        description="Tu embudo de ventas. Arrastra las tarjetas entre etapas."
+      />
+      <DealsBoard
+        key={`${board.activePipelineId}-${signature}`}
+        board={board}
+        stagesByPipeline={stagesByPipeline}
+        persons={persons}
+        organizations={organizations}
+        conditions={conditions}
+        customFieldDefs={customFieldDefs}
+        labels={labelOptions}
+        sequenceOptions={enrollableSequences}
+        savedViews={savedViews}
+      />
+    </>
+  );
+}

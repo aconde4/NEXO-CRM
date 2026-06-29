@@ -1,0 +1,244 @@
+import "server-only";
+
+import { and, asc, desc, eq, sql } from "drizzle-orm";
+
+import { requireUser } from "@/lib/session";
+import { db } from "@/server/db";
+import {
+  type FormEmbedSettings,
+  type FormFieldDef,
+  type FormMapping,
+  type FormStatus,
+  automations,
+  customFieldDefs,
+  formSubmissions,
+  forms,
+  persons,
+} from "@/server/db/schema";
+
+export type FormListItem = {
+  id: string;
+  name: string;
+  description: string;
+  status: FormStatus;
+  fieldCount: number;
+  submissionCount: number;
+  updatedAt: string;
+};
+
+export type FormDetail = {
+  id: string;
+  name: string;
+  description: string;
+  status: FormStatus;
+  fields: FormFieldDef[];
+  mappings: FormMapping[];
+  redirectUrl: string;
+  embedSettings: FormEmbedSettings;
+  automationId: string | null;
+  updatedAt: string;
+};
+
+export async function listForms(): Promise<FormListItem[]> {
+  const user = await requireUser();
+  const [rows, counts] = await Promise.all([
+    db
+      .select({
+        id: forms.id,
+        name: forms.name,
+        description: forms.description,
+        status: forms.status,
+        fields: forms.fields,
+        updatedAt: forms.updatedAt,
+      })
+      .from(forms)
+      .where(eq(forms.ownerId, user.id))
+      .orderBy(desc(forms.updatedAt)),
+    db
+      .select({
+        formId: formSubmissions.formId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(formSubmissions)
+      .where(eq(formSubmissions.ownerId, user.id))
+      .groupBy(formSubmissions.formId),
+  ]);
+
+  const countByForm = new Map(counts.map((c) => [c.formId, c.count]));
+
+  return rows.map((row) => ({
+    description: row.description ?? "",
+    fieldCount: row.fields?.length ?? 0,
+    id: row.id,
+    name: row.name,
+    status: row.status,
+    submissionCount: countByForm.get(row.id) ?? 0,
+    updatedAt: row.updatedAt.toISOString(),
+  }));
+}
+
+export async function getForm(id: string): Promise<FormDetail | null> {
+  const user = await requireUser();
+  return getFormForOwner(id, user.id);
+}
+
+export async function getFormForOwner(
+  id: string,
+  ownerId: string,
+): Promise<FormDetail | null> {
+  const [row] = await db
+    .select({
+      id: forms.id,
+      name: forms.name,
+      description: forms.description,
+      status: forms.status,
+      fields: forms.fields,
+      mappings: forms.mappings,
+      redirectUrl: forms.redirectUrl,
+      embedSettings: forms.embedSettings,
+      automationId: forms.automationId,
+      updatedAt: forms.updatedAt,
+    })
+    .from(forms)
+    .where(and(eq(forms.id, id), eq(forms.ownerId, ownerId)))
+    .limit(1);
+  if (!row) return null;
+
+  return {
+    automationId: row.automationId,
+    description: row.description ?? "",
+    embedSettings: row.embedSettings ?? {},
+    fields: row.fields ?? [],
+    id: row.id,
+    mappings: row.mappings ?? [],
+    name: row.name,
+    redirectUrl: row.redirectUrl ?? "",
+    status: row.status,
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+export type PublicForm = {
+  id: string;
+  name: string;
+  fields: FormFieldDef[];
+  intro: string;
+  submitLabel: string;
+  successMessage: string;
+};
+
+/**
+ * Formulario para su página pública (7.3): **sin autenticación** y solo si está
+ * `active`. Devuelve únicamente los datos visibles (sin owner ni mapeos internos).
+ */
+export async function getPublicForm(id: string): Promise<PublicForm | null> {
+  const [row] = await db
+    .select({
+      id: forms.id,
+      name: forms.name,
+      status: forms.status,
+      fields: forms.fields,
+      embedSettings: forms.embedSettings,
+    })
+    .from(forms)
+    .where(eq(forms.id, id))
+    .limit(1);
+  if (!row || row.status !== "active") return null;
+
+  return {
+    fields: row.fields ?? [],
+    id: row.id,
+    intro: row.embedSettings?.intro ?? "",
+    name: row.name,
+    submitLabel: row.embedSettings?.submitLabel ?? "Enviar",
+    successMessage: row.embedSettings?.successMessage ?? "",
+  };
+}
+
+export type FormSubmissionItem = {
+  id: string;
+  createdAt: string;
+  ip: string | null;
+  data: Record<string, unknown>;
+  person: { id: string; name: string; email: string | null } | null;
+};
+
+/** Envíos recientes de un formulario (owner-aware), con el contacto creado/encontrado. */
+export async function listFormSubmissions(
+  formId: string,
+  limit = 20,
+): Promise<FormSubmissionItem[]> {
+  const user = await requireUser();
+  const rows = await db
+    .select({
+      id: formSubmissions.id,
+      createdAt: formSubmissions.createdAt,
+      ip: formSubmissions.ip,
+      data: formSubmissions.data,
+      personId: persons.id,
+      firstName: persons.firstName,
+      lastName: persons.lastName,
+      email: persons.email,
+    })
+    .from(formSubmissions)
+    .leftJoin(persons, eq(formSubmissions.personId, persons.id))
+    .where(
+      and(
+        eq(formSubmissions.formId, formId),
+        eq(formSubmissions.ownerId, user.id),
+      ),
+    )
+    .orderBy(desc(formSubmissions.createdAt))
+    .limit(limit);
+
+  return rows.map((row) => ({
+    createdAt: row.createdAt.toISOString(),
+    data: row.data ?? {},
+    id: row.id,
+    ip: row.ip,
+    person: row.personId
+      ? {
+          email: row.email,
+          id: row.personId,
+          name:
+            [row.firstName, row.lastName].filter(Boolean).join(" ").trim() ||
+            "Contacto",
+        }
+      : null,
+  }));
+}
+
+export type FormBuilderOption = { id: string; name: string };
+export type FormPersonField = { key: string; label: string };
+export type FormBuilderOptions = {
+  personFields: FormPersonField[];
+  automations: FormBuilderOption[];
+};
+
+/** Opciones para el constructor: campos personalizados de persona y automatizaciones. */
+export async function listFormBuilderOptions(): Promise<FormBuilderOptions> {
+  const user = await requireUser();
+  const [fieldRows, automationRows] = await Promise.all([
+    db
+      .select({ key: customFieldDefs.key, label: customFieldDefs.label })
+      .from(customFieldDefs)
+      .where(
+        and(
+          eq(customFieldDefs.ownerId, user.id),
+          eq(customFieldDefs.entityType, "person"),
+        ),
+      )
+      .orderBy(asc(customFieldDefs.position)),
+    db
+      .select({ id: automations.id, name: automations.name })
+      .from(automations)
+      .where(eq(automations.ownerId, user.id))
+      .orderBy(asc(automations.name))
+      .limit(500),
+  ]);
+
+  return {
+    automations: automationRows,
+    personFields: fieldRows,
+  };
+}

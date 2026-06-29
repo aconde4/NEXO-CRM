@@ -1,0 +1,57 @@
+# CRM (proyecto personal estilo Pipedrive, mejorado)
+
+CRM personal y autoalojado, inspirado en Pipedrive pero más potente: gestión de
+contactos y empresas, embudos visuales de ventas, envío de correos 1:1 y campañas
+masivas, secuencias/drip, un motor de automatizaciones visual y IA integrada
+(Claude) en todo el flujo.
+
+> **Estado del proyecto:** FASE 0 (fundaciones) ~80% hecha — app Next.js con diseño,
+> app shell, base de datos y jobs ya montados y compilando. Falta conectar Supabase y
+> el login de Google (ver [`docs/SETUP.md`](docs/SETUP.md)). El plan completo está en
+> [`docs/`](docs/); retoma siempre por [`docs/ESTADO-ACTUAL.md`](docs/ESTADO-ACTUAL.md).
+
+## 🚀 Arrancar en local
+
+```bash
+pnpm install
+pnpm dev        # http://localhost:3000
+```
+
+Antes de conectar BD y login, copia `.env.example` a `.env.local` y rellena los
+valores siguiendo [`docs/SETUP.md`](docs/SETUP.md).
+
+## 📚 Documentación (léela en este orden)
+
+1. [`docs/00-VISION-Y-PLAN-MAESTRO.md`](docs/00-VISION-Y-PLAN-MAESTRO.md) — Qué
+   construimos, por qué, mejoras sobre Pipedrive y **cómo retomar el trabajo si te
+   quedas sin créditos** (protocolo de reanudación). **Empieza aquí.**
+2. [`docs/01-ARQUITECTURA-Y-STACK.md`](docs/01-ARQUITECTURA-Y-STACK.md) — Stack
+   técnico, decisiones, estructura de carpetas, cuentas a crear y costes.
+3. [`docs/02-MODELO-DE-DATOS.md`](docs/02-MODELO-DE-DATOS.md) — Todas las entidades
+   y el esquema de base de datos.
+4. [`docs/03-PARIDAD-PIPEDRIVE-Y-MEJORAS.md`](docs/03-PARIDAD-PIPEDRIVE-Y-MEJORAS.md)
+   — Matriz de funcionalidades de Pipedrive y nuestras mejoras.
+5. [`docs/04-ROADMAP-DETALLADO.md`](docs/04-ROADMAP-DETALLADO.md) — El plan de
+   construcción fase por fase, tarea por tarea, con checklists.
+6. [`docs/05-SEGURIDAD-Y-RENDIMIENTO.md`](docs/05-SEGURIDAD-Y-RENDIMIENTO.md) —
+   Revisión de seguridad, rendimiento y calidad.
+7. [`docs/06-CAMPOS-Y-PERSONALIZACION.md`](docs/06-CAMPOS-Y-PERSONALIZACION.md) —
+   Campos personalizados, importación Excel/CSV y personalización de email.
+8. [`docs/ESTADO-ACTUAL.md`](docs/ESTADO-ACTUAL.md) — **El archivo vivo**: en qué
+   fase y tarea exacta estamos ahora mismo. Se actualiza en cada sesión.
+
+## 🧭 Decisiones tomadas (16/06/2026)
+
+- **Modo de trabajo:** mixto, Claude construye y explica lo esencial.
+- **Email:** secuencias 1:1 (vía Gmail) **y** campañas masivas (vía Resend) por igual.
+- **Hosting:** en la nube, 24/7, coste casi cero al inicio.
+- **Primer MVP:** Contactos + Pipeline.
+
+## ⚡ Resumen del stack
+
+Next.js (App Router, TypeScript) · Tailwind + shadcn/ui · PostgreSQL (Supabase) ·
+Drizzle ORM · Auth.js (Google) · Inngest (motor de automatizaciones/colas) ·
+Gmail API (1:1) · Resend (masivo) · Claude API (IA) · Vercel (hosting).
+
+Todo con plan gratuito al inicio. Detalles y justificación en
+[`docs/01-ARQUITECTURA-Y-STACK.md`](docs/01-ARQUITECTURA-Y-STACK.md).
